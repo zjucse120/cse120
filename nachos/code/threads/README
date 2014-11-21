@@ -1,0 +1,115 @@
+1111dont want push test
+
+11111
+TEST TIANQI
+
+test!!
+
+test again!
+Please run executable in the threads directory!  :)
+Member:
+Busheng Lou A53080746
+Tianqi Chen A53079580
+Ziqian Xu A53081116
+Kaiyue Yang A53081576
+
+1. Locks and Conditions
+In Lock, there are three functions  as Acquire() to get the lock, Release() to remove the current thread from the waitlist and put it in the readytorun list, and isHeldByCurrentThread to determine whether or not the current thread has the lock.
+
+In condition variables, there are three functions as Wait() to block the thread, Signal() to remove the current thread from the waitlist and put it in the readytorun list, and Broadcase() to remove all threads in the waitlist and put all of them in the readytorun list.
+
+We test all the seven test cases asked we to do in the project1.
+(1) acquiring the same Lock twice  -     Aborted
+(2) releasing a Lock that isn't held - Aborted
+(3) deleting a Lock that is held - Aborted
+(4) waiting on a condition variable without holding a Lock - Aborted
+(5) signaling a condition variable wakes only one thread and broadcasting wakes up all threads - L2 wake up L1 and L11 
+(6) signaling and broadcasting to a condition variable with no waiters is a no-op, and future threads that wait will block (i.e., the signal/broadcast is "lost") - L1 is still waiting
+(7) a thread calling Signal holds the Lock passed in to Signal - Aborted when using different lock
+(8) deleting a lock or condition variable should have no threads on the wait queue. - Aborted
+
+2. Mailbox
+We use three condition variables and one lock to implement the Mailbox class. Mailbox are implemented  in the synch.cc and synch.h.
+
+Three condition variables are Send_Condition , Receive_Condition and Mail_Condition.
+Send_Condition is used with Send_Counter  to synchronize the situation where a sender has to wait for a receiver. Same idea, Receive_Condition is used with Receive_Counter to synchronize the situation where a receiver has to wait for a sender. When Send_Counter is less than 1, Send_Condition will wait. When Receive_Counter less than 1, Receive_Counter will wait. When a recevier or  a sender jumps out of waiting or without waiting  and keep doing , Sender_Counter or Receiver_Counter will decrease by 1. This means a sender and a receiver matches each other.
+
+Mail_Condition is used with Mail_Counter to synchronize the situation where a sender has to wait for a receiver done receiving before it can send new message to the buffer or the situation where a receiver has to wait for a sender done sending new message to a buffer before it can receive the message. When Mail_Counter=1, it means a send has done sending message and waiting for a receiver receive it. When a receiver receives the message, it will turn Mail_Counter =0. Then a new sender can send new message and another receiver has to wait for new message sending finishes.
+
+We tested our Mailbox implementation by creating 3 test programs. 
+
+1. The first program(test case 21)  tested the case that when there multiple sender and receiver forked in disordered way. In case 21, we forked 5 sender threads and 5 receiver threads in disordered way and running nachos we can get receiver printing signal number from sender each time correctly in the terminal.
+
+2. The second program(test case 22) tested the case that we have more receivers than senders and sender forked first. In case 22, we forked 3 sender threads at first then forked 5 receivers and running nachos we can get receiver printing signal number 3 times, which exactly the number we use senders to send.The left two receivers who have no senders to match just keep waiting. 
+
+3.The third program(test case 23) tested the case that we have more senders than receivers and receivers forked at first. In case 23, we forked 3 receiver threads at first then forked 5 senders and running nachos we can get receiver printing signal number 3 times, which exactly the number we use senders to send.The left two senders who have no receivers to match just keep waiting.
+
+
+3. Join
+we use two condition variables and one lock to implement the join method, all of the code involved with Join is in thread.cc and thread.h.
+
+Two variables are child_called and child_end to synchronize the process. Child_called is used to indicate that child thread is called Join by the parent thread, otherwise even when the child thread finishes, it can not delete until being called by parent thread. Child_end is used to indicate the condition that child thread has finished and parent thread can be unblocked and continue processing. Therefore with the help of the two condition variables, we can implement the synchronization of parent thread and child thread. 
+
+When the parent thread calls Join, it will be blocked until the child thread finishes. So the parent thread will wait for the child_end condition variable to wake it up. Also, the parent thread will signal child_called condition variable to indicate the child has been called Join. So if the child thread has finished, it can be deleted.  
+
+The joinLock, working with the function of waitI() and signal(), is used to synchronize the process of parent thread and child thread.
+
+There are also four flags to indicate the condition of the current thread. Join shows whether or not Join will be called on this thread, join=1 means it will be called. Forked indicates whether the thread has forked a child thread. If forked is false, it can not call Join. Joined indicates whether or not the child thread has been called Join before. If Joined is false, the child thread can be called Join. Child_finish indicates whether or not the child thread has finished, it child_finished is false, the parent thread will be blocked and wait until child thread finish to continue.
+
+There is one problem that the executable runs well in thread directory, but when run it in code directory, there always pop up some problem about declaration. 
+
+We write seven test case to test our Join implementation:
+The first test(test case 31) test that a thread that will be joined only is destroyed once Join has been called on it. In case 31, we create parent and child tread, and parent is intentionally longer than child to make sure child thread finishes first. But the child thread can not be deleted because it has not been called. In order to test this, we print a sentence at the end of child thread to indicate it finishes. The result shows when the child thread ends, it print "the child thread finishes". And then print "the child keeps waiting to be called" which indicates the child thread still alive. 
+Case 32 tests that if a parent calls Join on a child and the child is still executing, the parent waits. In case 32, the child thread is intentionally longer than parent thread. And when we test it, the output shows that the parent thread blocks and the child thread keeps running. The parent thread will continue when child thread finishes.
+Case 33 tests that if a parent calls Join on a child and the child has finished executing, the parent does not block. Case 33 equals to case 31 where child thread is shorter than parent thread and finish first. The result shows the parent keep processing without blocking.
+Case 34 tests that a thread does not call Join on itself. We create the child thread with the function of parent thread. The result is the program abort.
+Case 35 tests that Join is only invoked on threads created to be joined. We create the child thread with join=0. The result is the program abort.
+Case 36 tests that Join is only called on a thread that has forked. We new two threads but only Fork the parent thread. The result is the program abort.
+Case 37 tests that Join is not called more than once on a thread. In the parent thread, we call Join twice and the result is the program abort.
+
+
+4. Priorities
+ We need to create two new functions getPriority() and setPriority. Priority are implemented with setPriority(int priority) and getPriority() in thread.cc. 
+
+First, we change the way to put threads to the readyList. We don't need to use List->Append(); we use SortedInsert(); we change this in scheduler.cc. we have use priority of the currentThread as the sortkey. So when the thread created and put to the readyList, we will sort it with priority. 
+For lock, CV, semaphore, we also need to change the way when threads added to the wait queue, we need to sort it with priority. So we do the similar thing with the scheduler.cc. We used queue->SortedInsert() to instead queue->Append(). And then, when we put threads to the wait queue, so we can sort the queue with priority.
+
+For the extra part. f a high priority thread needs to wait for a low priority thread, such as for a lock held by a low priority thread or for a Join to complete, and a middle priority thread is on the ready list, then the high priority thread will never get the CPU because the low priority thread will not get any CPU time. We can solve this with changing Lock class. When a thead acquired the lock successfully, we put the priority of currentThread to the initialPriority. Then if high priority thread can not acquire the lock, it will set the holder(low priority thread) as the same as itsself. The Low_priority thread will never yield to the midium_priority thread. Then when low_priority thread released lock, process will set its priority as initialPriority. 
+Join() is similar with lock().
+
+In the test part, we do the four test.
+First, when added three threads with different priority. We printf L1,L2,L3 for each threads, L3 comes first and it will not yield to another thread.
+Second, when release the lock, we created four threads, first thread acquire the lock. The others will be put to the wait queue. However, the low priority threads will be sorted at first. The higher one come later. We will sorted them with priority, then the highest will be put at the beginning of the wait queue, it will wake up first. CV and semaphore are similar.
+Third and fourth tests are for the extra part. In the third test, we use CV to wakeup other threads. When the low priority acquired the lock. Highest one will wait, with the broadcast, even when the low_priority yield to medium one, it will not success. Because now the lowest one' priority become the highest. The problem have been solved.
+The fourth one is same as the third test. We create the low priority thread first and then create higher two threads in the lower_priority thread. With this method, the lowest one will run first, and then the problem comes and with new"Lock" , it will be solved too!
+
+
+
+5. Whales
+We used six semaphores and two locks to implement the Whale class. Whale are implemented with Join is in synch.cc, synch.h, thread.cc and thread.h.
+
+Six semaphores are Male_Sema, Female_Sema, Matchmaker_Sema, Maleend_Sema, Femaleend_Sema, Matchmakerend_Sema. 
+Male_Sema is used with Femalenum and Matchmakernum  to synchronize the situation where a male has to wait for a female and a matchmaker. When Femalenum or Matchmakernum is 0, the male has to wait. When the male jumps out of sleeping condition and keep doing(mating), Malenum, Femalenum and Matchmakernum will decrease by 1, demonstrating that a mating has been made. And it wakes up another female and another matchmaker to do the mating. Femaleend_Sema, Matchmakerend_Sema make sure that it suspends after the waked female and matchmaker finish, therefore, along with Whale_lock1, there will be only one mating in progress. Whale_lock2 was used to make sure that it will print the actual mated male and female.
+
+Same idea, Female_Sema is used with Malenum and Matchmakernum  to synchronize the situation where a male has to wait for a male and a matchmaker. When Malenum or Matchmakernum is 0, the female has to wait. When the female jumps out of sleeping condition and keep doing(mating), Malenum, Femalenum and Matchmakernum will decrease by 1, demonstrating that a mating has been made. And it wakes up another male and another matchmaker to do the mating. Maleend_Sema, Matchmakerend_Sema make sure that it suspends after the waked male and matchmaker finish, therefore, along with Whale_lock1, there will be only one mating in progress. Whale_lock2 was used to make sure that it will print the actual mated male and female.
+
+Same idea, Matchmaker_Sema is used with Malenum and Femalenum  to synchronize the situation where a matchmaker has to wait for a male and a female. When Malenum or Femalenum is 0, the matchmaker has to wait. When the matchmaker jumps out of sleeping condition and keep doing(mating), Malenum, Femalenum and Matchmakernum will decrease by 1, demonstrating that a mating has been made. And it wakes up another male and another female to do the mating. Maleend_Sema, Femaleend_Sema make sure that it suspends after the waked male and female finish, therefore, along with Whale_lock1, there will be only one mating in progress. Whale_lock2 was used to make sure that it will print the actual mated male and female.
+
+'waiting' was used to show if the current whale has waited for a mating. waiting=1 means it has waited for a mating, otherwise, it has never waited.
+
+We tested our Mailbox implementation by creating 3 test programs. 
+
+1. The first program(test case 51) tested the case that we have single male, female and matchmaker. In case 51, we forked one male thread, one female thread and one matchmaker thread and running nachos we can get printf outputs correctly in the terminal, which is "Thread male1 and Thread female1 mate successfully."
+
+2. The second program(test case 52) tested the case that we have multiple males, females and matchmakers and their amounts are the same. In case 52, we forked 3 male threads, 3 female threads and 3 matchmaker threads in disordered way and running nachos we can get printf outputs correctly in the terminal, which is
+"
+Thread male1 and Thread female1 mate successfully.
+Thread male2 and Thread female2 mate successfully.
+Thread male3 and Thread female3 mate successfully.
+"
+
+3.The third program(test case 53) tested the case that multiple males, females and matchmakers but their amounts are not the same. In case 53, we forked 3 male, 3 female threads and 1 matchmaker thread in disordered way and running nachos we can get printf outputs correctly in the terminal, which is "Thread male1 and Thread female1 mate successfully."
+
+
+Summary()
+Everyone in our group contributed to the project. In order to have a deep understanding of Locks and Condition variables, which are the profound basis of the whole project, we implement the first part respectively and then came up with the best solution. Busheng Lou implemented Mailbox and testing Mailbox. Ziqian Xu implemented Join. Tianqi Chen implemented Whale.And after finishing and testing by ourselves with our own part, we tested for each other's program and debugged. Kaiyue Yang implemented Priority part.
