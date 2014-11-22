@@ -24,6 +24,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "synch.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -48,16 +49,88 @@
 //	are in machine.h.
 //----------------------------------------------------------------------
 
+void ExitHandler()
+{
+          Lock* exitlock;
+          exitlock = new Lock("exitlock");
+          AddrSpace *space;
+          exitlock->Acquire();
+          space = currentThread->space;
+          int value = machine->ReadRegister(4);
+          printf("%d\n", value); 
+          space->~AddrSpace();
+          currentThread->Finish();
+          exitlock->Release();
+}
+
+
 void
 ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
-
-    if ((which == SyscallException) && (type == SC_Halt)) {
-        DEBUG('a', "Shutdown, initiated by user program.\n");
+    //Thread *thread;
+    //typedef void (*function)();
+    //function func;
+    if  ((which == SyscallException) && (type == SC_Halt)) {
+       DEBUG('a', "Shutdown, initiated by user program.\n");
         interrupt->Halt();
-    } else {
+    }
+   else if((which == SyscallException) && (type == SC_Exit)) {
+
+        ExitHandler();    
+    } 
+  // else if((which == SyscallException) && (type == SC_Fork)) {
+
+    //    AddrSpace *space;
+      //  Thread *thread = new Thread("newThread");
+        //int arg = machine->ReadRegister(4);
+        //VoidFunctionPtr func = arg;
+      //  space = currentThread->space;
+      //  thread->Fork(func, 0);   
+      //  currentThread->space = space;
+
+ //   }   
+   else if((which == SyscallException) && (type == SC_Yield)) {
+        currentThread->Yield();
+
+   }
+   else if(which == NoException)
+  {
+        printf("Everything is ok!");
+   }
+   else if(which == PageFaultException)
+   {
+        printf("No valid translation found.\n");
+        ExitHandler();
+   }
+   else if(which == ReadOnlyException)
+   {
+        printf("Write attempted to page marked 'read-only'.\n");
+        ExitHandler();
+   }
+   else if(which == BusErrorException)
+   {
+        printf("Translation resulted in an invalid physical address.\n");
+        ExitHandler();
+    }
+   else if(which == AddressErrorException)
+   {
+        printf("Unaligned reference or one that was beyond the end of the address space.\n");
+        ExitHandler();
+    }
+    else if(which == OverflowException)
+   {
+        printf("Integer overflow in add or sub.\n");
+        ExitHandler();   
+   }
+   else if(which == IllegalInstrException)
+   {
+         printf("Unimplemented or reserved instr.\n");
+         ExitHandler();
+    }
+   else{
         printf("Unexpected user mode exception %d %d\n", which, type);
         ASSERT(FALSE);
     }
 }
+
