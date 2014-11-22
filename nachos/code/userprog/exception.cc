@@ -24,7 +24,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
-
+#include "addrspace.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -47,17 +47,99 @@
 //	"which" is the kind of exception.  The list of possible exceptions
 //	are in machine.h.
 //----------------------------------------------------------------------
-
+/*
+void MyExec(char *filename);
 void
 ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
-
-    if ((which == SyscallException) && (type == SC_Halt)) {
+ 
+    int arg1 = machine->ReadRegister(4);
+    int arg2 = machine->ReadRegister(5);
+    int arg3 = machine->ReadRegister(6);
+    int arg4 = machine->ReadRegister(7);
+  
+   if (which == SyscallException) {
+        switch(type){
+        case SC_Halt:
+       {
         DEBUG('a', "Shutdown, initiated by user program.\n");
         interrupt->Halt();
-    } else {
+        break;}
+        case SC_Exit:{
+        printf("Unexpected user mode exception %d %d\n", which, type);
+        break;
+        }
+        case SC_Exec:
+        {
+        int position = 0;
+        char* fileName = new char[128];
+        int value;
+        while (value != NULL) {
+        machine->ReadMem(arg1, 4, &value);
+        fileName[position] = (char) value;
+        position++;
+        arg1++;
+        }
+        MyExec(fileName);
+        break;
+        }
+        case SC_Join:
+        break;
+       
+        case SC_Create:
+        break;
+       
+        case SC_Open:
+        break;
+       
+        case SC_Read:
+        break;
+       
+        case SC_Write:
+        break;
+       
+        case SC_Close:
+        break;
+       
+        case SC_Fork:
+        break;
+       
+        case SC_Yield:
+        break;
+        
+        default:
         printf("Unexpected user mode exception %d %d\n", which, type);
         ASSERT(FALSE);
-    }
+       }
+    } 
+    else {
+        printf("Unexpected user mode exception %d %d\n", which, type);
+        ASSERT(FALSE);
+         }
+
+
+
 }
+
+void 
+MyExec(char *filename)
+{
+    OpenFile *executable = fileSystem->Open(filename);
+    if (executable == NULL) {
+        printf("Unable to open file %s\n", filename);
+        return;
+    }
+    AddrSpace *space;
+    space = new AddrSpace(executable);  
+    space->Initialize(executable);  
+//    ASSERT(space->Initialize(executable));
+    Thread *thread;
+    thread->space = space;
+
+    delete executable;			// close file
+
+    
+}
+*/
+
