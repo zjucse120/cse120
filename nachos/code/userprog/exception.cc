@@ -26,7 +26,6 @@
 #include "syscall.h"
 #include "addrspace.h"
 #include "synch.h"
-//#include "processmanager.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -68,11 +67,12 @@ void ExitHandler()
           AdjustPC();
 }
 
+
 void
 ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
-     int arg1 = machine->ReadRegister(4);
+    int arg1 = machine->ReadRegister(4);
     int arg2 = machine->ReadRegister(5);
     int arg3 = machine->ReadRegister(6);
     int arg4 = machine->ReadRegister(7);
@@ -131,15 +131,62 @@ ExceptionHandler(ExceptionType which)
          } 
 }
     else {
+    if  ((which == SyscallException) && (type == SC_Halt)) {
+       DEBUG('a', "Shutdown, initiated by user program.\n");
+        interrupt->Halt();
+    }
+   else if((which == SyscallException) && (type == SC_Exit)) {
+
+        ExitHandler();    
+    } 
+   else if((which == SyscallException) && (type == SC_Yield)) {
+        currentThread->Yield();
+
+   }
+   else if(which == NoException)
+  {
+        printf("Everything is ok!");
+   }
+   else if(which == PageFaultException)
+   {
+        printf("No valid translation found.\n");
+        ExitHandler();
+   }
+   else if(which == ReadOnlyException)
+   {
+        printf("Write attempted to page marked 'read-only'.\n");
+        ExitHandler();
+   }
+   else if(which == BusErrorException)
+   {
+        printf("Translation resulted in an invalid physical address.\n");
+        ExitHandler();
+    }
+   else if(which == AddressErrorException)
+   {
+        printf("Unaligned reference or one that was beyond the end of the address space.\n");
+        ExitHandler();
+    }
+    else if(which == OverflowException)
+   {
+        printf("Integer overflow in add or sub.\n");
+        ExitHandler();   
+   }
+   else if(which == IllegalInstrException)
+   {
+         printf("Unimplemented or reserved instr.\n");
+         ExitHandler();
+    }
+   else{
         printf("Unexpected user mode exception %d %d\n", which, type);
         ASSERT(FALSE);
          }
 
 }
+}
 
 void 
-MyExec(char *filename)
-{
+MyExec(char *filename){
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
@@ -162,6 +209,7 @@ MyExec(char *filename)
     AdjustPC();
 }
 
+
 void ProcessStart(int a){
     currentThread->space->InitRegisters();
     currentThread->space->SaveState();
@@ -183,5 +231,6 @@ void AdjustPC()
   pc += 4;
   machine->WriteRegister(NextPCReg, pc);
 }
+
 
 

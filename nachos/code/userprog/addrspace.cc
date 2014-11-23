@@ -143,7 +143,7 @@ AddrSpace::Initialize(OpenFile *executable)
 		code_virt_addr = code_virt_addr + code_size ;
 		code_size = PageSize;		
 		executable->ReadAt(&(machine->mainMemory[Translate(code_virt_addr)]), code_size, code_file_off);
-		printf("the memory is %p \n", &(machine->mainMemory[Translate(code_virt_addr)]));
+		//printf("the memory is %p \n", &(machine->mainMemory[Translate(code_virt_addr)]));
                 code_size_load = code_size_load - code_size;	
 	        }	
 	   
