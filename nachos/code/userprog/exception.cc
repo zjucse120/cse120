@@ -50,20 +50,20 @@
 //----------------------------------------------------------------------
 extern ProcessTable *pt;
 void AdjustPC();
-void MyExec(char *filename);
+void ExecHandler(char *filename);
 void ProcessStart(int a);
 void ExitHandler()
 {
-          Lock* exitlock;
-          exitlock = new Lock("exitlock");
+          //Lock* exitlock;
+          //exitlock = new Lock("exitlock");
           AddrSpace *space;
-          exitlock->Acquire();
+          //exitlock->Acquire();
           space = currentThread->space;
           int value = machine->ReadRegister(4);
           printf("Exit value is %d\n", value); 
           space->~AddrSpace();
           currentThread->Finish();
-          exitlock->Release();
+          //exitlock->Release();
           AdjustPC();
 }
 
@@ -99,7 +99,7 @@ ExceptionHandler(ExceptionType which)
         position++;
         arg1++;
         }
-        MyExec(fileName);
+        ExecHandler(fileName);
         break;
         }
         case SC_Join:
@@ -186,7 +186,7 @@ ExceptionHandler(ExceptionType which)
 }
 
 void 
-MyExec(char *filename){
+ExecHandler(char *filename){
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
