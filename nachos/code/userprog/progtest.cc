@@ -14,18 +14,21 @@
 #include "addrspace.h"
 #include "synch.h"
 #include "memorymanager.h"
+//#include "processmanager.h"
 //----------------------------------------------------------------------
 // StartProcess
 // 	Run a user program.  Open the executable, load it into
 //	memory, and jump to it.
 //----------------------------------------------------------------------
 MemoryManager * mmu;
+ProcessTable *pt;
 void
 StartProcess(char *filename)
 {
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
     mmu = new MemoryManager(32);
+    pt = new ProcessTable(100);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
         return;
@@ -36,6 +39,7 @@ StartProcess(char *filename)
 //    ASSERT(space->Initialize(executable));
  
     currentThread->space = space;
+    pt->Alloc(currentThread);
 
     delete executable;			// close file
 

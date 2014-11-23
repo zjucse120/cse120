@@ -25,6 +25,8 @@
 #include "system.h"
 #include "syscall.h"
 #include "addrspace.h"
+#include "synch.h"
+//#include "processmanager.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -47,18 +49,33 @@
 //	"which" is the kind of exception.  The list of possible exceptions
 //	are in machine.h.
 //----------------------------------------------------------------------
-/*
+extern ProcessTable *pt;
+void AdjustPC();
 void MyExec(char *filename);
+void ProcessStart(int a);
+void ExitHandler()
+{
+          Lock* exitlock;
+          exitlock = new Lock("exitlock");
+          AddrSpace *space;
+          exitlock->Acquire();
+          space = currentThread->space;
+          int value = machine->ReadRegister(4);
+          printf("Exit value is %d\n", value); 
+          space->~AddrSpace();
+          currentThread->Finish();
+          exitlock->Release();
+          AdjustPC();
+}
+
 void
 ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
- 
-    int arg1 = machine->ReadRegister(4);
+     int arg1 = machine->ReadRegister(4);
     int arg2 = machine->ReadRegister(5);
     int arg3 = machine->ReadRegister(6);
     int arg4 = machine->ReadRegister(7);
-  
    if (which == SyscallException) {
         switch(type){
         case SC_Halt:
@@ -67,6 +84,7 @@ ExceptionHandler(ExceptionType which)
         interrupt->Halt();
         break;}
         case SC_Exit:{
+        ExitHandler();
         printf("Unexpected user mode exception %d %d\n", which, type);
         break;
         }
@@ -76,7 +94,7 @@ ExceptionHandler(ExceptionType which)
         char* fileName = new char[128];
         int value;
         while (value != NULL) {
-        machine->ReadMem(arg1, 4, &value);
+        machine->ReadMem(arg1, 1, &value);
         fileName[position] = (char) value;
         position++;
         arg1++;
@@ -109,16 +127,13 @@ ExceptionHandler(ExceptionType which)
         break;
         
         default:
-        printf("Unexpected user mode exception %d %d\n", which, type);
-        ASSERT(FALSE);
-       }
-    } 
+        break;
+         } 
+}
     else {
         printf("Unexpected user mode exception %d %d\n", which, type);
         ASSERT(FALSE);
          }
-
-
 
 }
 
@@ -130,16 +145,43 @@ MyExec(char *filename)
         printf("Unable to open file %s\n", filename);
         return;
     }
+    SpaceId pid;
+   
     AddrSpace *space;
     space = new AddrSpace(executable);  
     space->Initialize(executable);  
-//    ASSERT(space->Initialize(executable));
     Thread *thread;
+    thread = new Thread("1", 0 ,0);
     thread->space = space;
-
-    delete executable;			// close file
-
-    
+    pid = pt->Alloc(thread);
+    printf("The thread with pid of %d is going to run\n", pid); 
+    delete executable;	
+    thread->Fork(ProcessStart,0);
+    currentThread->Yield(); 
+    machine->WriteRegister(2,pid);     
+    AdjustPC();
 }
-*/
+
+void ProcessStart(int a){
+    currentThread->space->InitRegisters();
+    currentThread->space->SaveState();
+    currentThread->space->RestoreState(); 
+    machine->Run();			// jump to the user progam
+    ASSERT(FALSE);			
+
+}
+
+
+void AdjustPC()
+{
+  int pc;
+
+  pc = machine->ReadRegister(PCReg);
+  machine->WriteRegister(PrevPCReg, pc);
+  pc = machine->ReadRegister(NextPCReg);
+  machine->WriteRegister(PCReg, pc);
+  pc += 4;
+  machine->WriteRegister(NextPCReg, pc);
+}
+
 
