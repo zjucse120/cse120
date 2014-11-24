@@ -112,13 +112,6 @@ AddrSpace::Initialize(OpenFile *executable)
 	memset(&(machine->mainMemory[pageTable[i].physicalPage*PageSize]),0,sizeof(PageSize));
 	
    }
-
-//if the numPages needed larger than NumePages can be used?
-   if ((int)numPages > mmu->NumPagesCanBeUsed()){
-	printf("NumpagesCanBeUsed is not enough!");
-        return false;
-	}
-
 // then, copy in the code and data segments into memory
     if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n",
