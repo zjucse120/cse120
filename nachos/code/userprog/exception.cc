@@ -50,147 +50,128 @@
 //----------------------------------------------------------------------
 extern ProcessTable *pt;
 void AdjustPC();
-void ExecHandler(char *filename);
+
+void SystemCall(int type, int which);
+void Halt_Handler();
+void Exit_Handler();
+void Exec_Handler();
+
+void Exec(char *filename);
 void ProcessStart(int a);
-void ExitHandler()
-{
-          //Lock* exitlock;
-          //exitlock = new Lock("exitlock");
+
+
+void
+ExceptionHandler(ExceptionType which){
+    int type = machine->ReadRegister(2);
+    switch(which){
+       case NoException:
+            printf("Everything is ok!");
+            break;
+       case SyscallException: 
+            SystemCall(type,which);
+            break;
+       case PageFaultException:
+            printf("No valid translation found.\n");
+            Exit_Handler();
+            break;
+       case ReadOnlyException: 
+            printf("Write attempted to page marked 'read-only'.\n");
+            Exit_Handler();
+            break;
+       case BusErrorException:   
+            printf("Translation resulted in an invalid physical address.\n");
+            Exit_Handler();		
+            break;
+       case AddressErrorException: 
+            printf("Unaligned reference or one that was beyond the end of the address space.\n");
+            Exit_Handler();		
+            break;
+       case OverflowException:  
+            printf("Integer overflow in add or sub.\n");
+            Exit_Handler();    		
+            break;
+       case IllegalInstrException:
+            printf("Unimplemented or reserved instr.\n");
+            Exit_Handler();
+            break;
+       case NumExceptionTypes:
+            Exit_Handler();
+            break;
+       default:
+            printf("Unexpected user mode exception %d %d\n", which, type);
+            ASSERT(FALSE); 
+            break;     
+
+     }
+    
+}
+
+
+void SystemCall(int type, int which) {
+	switch (type) {
+	       case SC_Halt:
+                    Halt_Handler();
+                    break;
+               case SC_Exit:
+                    Exit_Handler();
+                    break;
+               case SC_Exec:
+                    Exec_Handler();
+                    break;
+               case SC_Join:
+                    break; 
+       
+               case SC_Create:
+                    break;
+       
+               case SC_Open:
+                    break;
+       
+               case SC_Read:
+       
+                    break; 
+               case SC_Write:
+
+                    break;
+               default:
+                    printf("Unexpected user mode exception %d %d\n", which, type);
+                    ASSERT(FALSE); 
+                    break;     
+
+	}
+}
+
+void Halt_Handler() {
+        DEBUG('a', "Shutdown, initiated by user program.\n");
+        interrupt->Halt();
+}
+
+void Exit_Handler(){
           AddrSpace *space;
-          //exitlock->Acquire();
           space = currentThread->space;
           int value = machine->ReadRegister(4);
           printf("Exit value is %d\n", value); 
           space->~AddrSpace();
           currentThread->Finish();
-          //exitlock->Release();
           AdjustPC();
 }
 
-
-void
-ExceptionHandler(ExceptionType which)
-{    
-    int type = machine->ReadRegister(2);
-    int arg1 = machine->ReadRegister(4);
-    int arg2 = machine->ReadRegister(5);
-    int arg3 = machine->ReadRegister(6);
-    int arg4 = machine->ReadRegister(7);
-    int syscallfail = 0;
-   if (which == SyscallException) {
-        switch(type){
-        case SC_Halt:
-       {
-        DEBUG('a', "Shutdown, initiated by user program.\n");
-        interrupt->Halt();
-        break;}
-        case SC_Exit:{
-        ExitHandler();
-        printf("Unexpected user mode exception %d %d\n", which, type);
-        break;
-        }
-        case SC_Exec:
-        {
+void Exec_Handler(){
+        int arg1 = machine->ReadRegister(4);
         int position = 0;
         char* fileName = new char[128];
         int value;
         while (value != NULL) {
-        machine->ReadMem(arg1, 1, &value);
-        fileName[position] = (char) value;
-        position++;
-        arg1++;
+            machine->ReadMem(arg1, 1, &value);
+            fileName[position] = (char) value;
+            position++;
+            arg1++;
         }
-        ExecHandler(fileName);
-        break;
-        }
-        case SC_Join:
-        break;
-       
-        case SC_Create:
-        break;
-       
-        case SC_Open:
-        break;
-       
-        case SC_Read:
-        break;
-       
-        case SC_Write:
-        break;
-       
-        case SC_Close:
-        break;
-       
-        case SC_Fork:
-        break;
-       
-        case SC_Yield:
-        break;
-        
-        default:
-        break;
-         } 
-      if(syscallfail){
-         machine->WriteRegister(2,-1);
-           }
-}
-    else {
-    if  ((which == SyscallException) && (type == SC_Halt)) {
-       DEBUG('a', "Shutdown, initiated by user program.\n");
-        interrupt->Halt();
-    }
-   else if((which == SyscallException) && (type == SC_Exit)) {
-
-        ExitHandler();    
-    } 
-   else if((which == SyscallException) && (type == SC_Yield)) {
-        currentThread->Yield();
-
-   }
-   else if(which == NoException)
-  {
-        printf("Everything is ok!");
-   }
-   else if(which == PageFaultException)
-   {
-        printf("No valid translation found.\n");
-        ExitHandler();
-   }
-   else if(which == ReadOnlyException)
-   {
-        printf("Write attempted to page marked 'read-only'.\n");
-        ExitHandler();
-   }
-   else if(which == BusErrorException)
-   {
-        printf("Translation resulted in an invalid physical address.\n");
-        ExitHandler();
-    }
-   else if(which == AddressErrorException)
-   {
-        printf("Unaligned reference or one that was beyond the end of the address space.\n");
-        ExitHandler();
-    }
-    else if(which == OverflowException)
-   {
-        printf("Integer overflow in add or sub.\n");
-        ExitHandler();   
-   }
-   else if(which == IllegalInstrException)
-   {
-         printf("Unimplemented or reserved instr.\n");
-         ExitHandler();
-    }
-   else{
-        printf("Unexpected user mode exception %d %d\n", which, type);
-        ASSERT(FALSE);
-         }
-
-}
+        Exec(fileName);
 }
 
 void 
-ExecHandler(char *filename){
+Exec(char *filename){
     SpaceId pid;
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
@@ -202,21 +183,26 @@ ExecHandler(char *filename){
       
     AddrSpace *space;
     space = new AddrSpace(executable);    
+    
     if(space->Initialize(executable)){
-    Thread *thread;
-    thread = new Thread("1", 0 ,0);
-    thread->space = space;
-    pid = pt->Alloc(thread);
-    printf("The thread with pid of %d is going to run\n", pid); 
-    delete executable;	
-    thread->Fork(ProcessStart,0);
-    currentThread->Yield(); 
-    machine->WriteRegister(2,pid);
+       Thread *thread;
+       thread = new Thread("1", 0 ,0);
+       thread->space = space;
+       pid = pt->Alloc(thread);
+       printf("The thread with pid of %d is going to run\n", pid); 
+       delete executable;	
+       thread->Fork(ProcessStart,0);
+       currentThread->Yield(); 
+       machine->WriteRegister(2,pid);
+     }
+    else  { 
+       delete executable;	
+        machine->WriteRegister(2,0);
     }
-    else   
-    machine->WriteRegister(2,0);
     AdjustPC();
 }
+
+
 
 
 void ProcessStart(int a){
@@ -226,19 +212,20 @@ void ProcessStart(int a){
     machine->Run();			// jump to the user progam
     ASSERT(FALSE);			
 
-}
+}          
+
 
 
 void AdjustPC()
 {
-  int pc;
+    int pc;
 
-  pc = machine->ReadRegister(PCReg);
-  machine->WriteRegister(PrevPCReg, pc);
-  pc = machine->ReadRegister(NextPCReg);
-  machine->WriteRegister(PCReg, pc);
-  pc += 4;
-  machine->WriteRegister(NextPCReg, pc);
+    pc = machine->ReadRegister(PCReg);
+    machine->WriteRegister(PrevPCReg, pc);
+    pc = machine->ReadRegister(NextPCReg);
+    machine->WriteRegister(PCReg, pc);
+    pc += 4;
+    machine->WriteRegister(NextPCReg, pc);
 }
 
 

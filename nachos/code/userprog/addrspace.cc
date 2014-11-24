@@ -83,15 +83,14 @@ AddrSpace::Initialize(OpenFile *executable)
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
+  //  ASSERT(numPages <= NumPhysPages);		// check we're not trying
     // to run anything too big --
     // at least until we have
     // virtual memory
    
    DEBUG('a', "Initializing address space, num pages %d, size %d\n",
           numPages, size);
-       int x;
-        x = mmu->NumPagesCanBeUsed();
+
 //if the numPages needed larger than NumePages can be used?
    if ((int)numPages >( mmu->NumPagesCanBeUsed())){
 	printf("No enough memory!\n");

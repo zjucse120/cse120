@@ -34,8 +34,7 @@ StartProcess(char *filename)
         return;
     }
     
-    space = new AddrSpace(executable);  
-    space->Initialize(executable);  
+    space = new AddrSpace(executable);   
     ASSERT(space->Initialize(executable));
  
     currentThread->space = space;
