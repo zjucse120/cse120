@@ -10,8 +10,7 @@ PCB::PCB(){
 ProcessTable::ProcessTable(int size){
      bitmap = new BitMap(size);
      Pcb = new PCB[size];
-     //Locks = new Lock*[size];
-     //Conditions = new Condition*[size];
+     pm_lock = new Lock("pm lock");
 }
 
 int

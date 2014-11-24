@@ -1,7 +1,6 @@
 #include "copyright.h"
 #include "bitmap.h"
-//#include "synch.h"
-
+#include "synch.h"
 class PCB{
 public:  
   PCB();  
@@ -21,6 +20,7 @@ public:
       PCB *Pcb;
 private:
       BitMap *bitmap;
+      Lock *pm_lock;
 };
 
 

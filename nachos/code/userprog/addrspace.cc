@@ -115,8 +115,8 @@ AddrSpace::Initialize(OpenFile *executable)
 
 //if the numPages needed larger than NumePages can be used?
    if ((int)numPages > mmu->NumPagesCanBeUsed()){
-	return false;
 	printf("NumpagesCanBeUsed is not enough!");
+        return false;
 	}
 
 // then, copy in the code and data segments into memory

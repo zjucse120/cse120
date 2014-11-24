@@ -25,7 +25,7 @@
 #include "system.h"
 #include "syscall.h"
 #include "addrspace.h"
-#include "synch.h"
+#include "processmanager.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -46,7 +46,7 @@
 // loop making the same system call forever!
 //
 //	"which" is the kind of exception.  The list of possible exceptions
-//	are in machine.h.
+//	are in machine.h.#include "synch.h"
 //----------------------------------------------------------------------
 extern ProcessTable *pt;
 void AdjustPC();

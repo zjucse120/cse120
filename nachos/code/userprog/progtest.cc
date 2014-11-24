@@ -14,7 +14,7 @@
 #include "addrspace.h"
 #include "synch.h"
 #include "memorymanager.h"
-//#include "processmanager.h"
+#include "processmanager.h"
 //----------------------------------------------------------------------
 // StartProcess
 // 	Run a user program.  Open the executable, load it into
