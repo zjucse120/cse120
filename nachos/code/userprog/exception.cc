@@ -195,7 +195,7 @@ ExecHandler(char *filename){
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
-        machine->WriteRegister(2,-1);
+        machine->WriteRegister(2,0);
         AdjustPC();
         return ;
     }
@@ -214,7 +214,7 @@ ExecHandler(char *filename){
     machine->WriteRegister(2,pid);
     }
     else   
-    machine->WriteRegister(2,-1);
+    machine->WriteRegister(2,0);
     AdjustPC();
 }
 

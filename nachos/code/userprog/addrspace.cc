@@ -94,7 +94,7 @@ AddrSpace::Initialize(OpenFile *executable)
         x = mmu->NumPagesCanBeUsed();
 //if the numPages needed larger than NumePages can be used?
    if ((int)numPages >( mmu->NumPagesCanBeUsed())){
-	printf("NumpagesCanBeUsed is not enough!\n");
+	printf("No enough memory!\n");
 	return false;
 	}
 
