@@ -70,12 +70,13 @@ void ExitHandler()
 
 void
 ExceptionHandler(ExceptionType which)
-{
+{    
     int type = machine->ReadRegister(2);
     int arg1 = machine->ReadRegister(4);
     int arg2 = machine->ReadRegister(5);
     int arg3 = machine->ReadRegister(6);
     int arg4 = machine->ReadRegister(7);
+    int syscallfail = 0;
    if (which == SyscallException) {
         switch(type){
         case SC_Halt:
@@ -129,6 +130,9 @@ ExceptionHandler(ExceptionType which)
         default:
         break;
          } 
+      if(syscallfail){
+         machine->WriteRegister(2,-1);
+           }
 }
     else {
     if  ((which == SyscallException) && (type == SC_Halt)) {
@@ -187,17 +191,18 @@ ExceptionHandler(ExceptionType which)
 
 void 
 ExecHandler(char *filename){
+    SpaceId pid;
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
-        return;
+        machine->WriteRegister(2,-1);
+        AdjustPC();
+        return ;
     }
-    SpaceId pid;
-   
+      
     AddrSpace *space;
-    space = new AddrSpace(executable);  
-    space->Initialize(executable);  
-    ASSERT(space->Initialize(executable));
+    space = new AddrSpace(executable);    
+    if(space->Initialize(executable)){
     Thread *thread;
     thread = new Thread("1", 0 ,0);
     thread->space = space;
@@ -206,7 +211,10 @@ ExecHandler(char *filename){
     delete executable;	
     thread->Fork(ProcessStart,0);
     currentThread->Yield(); 
-    machine->WriteRegister(2,pid);     
+    machine->WriteRegister(2,pid);
+    }
+    else   
+    machine->WriteRegister(2,-1);
     AdjustPC();
 }
 
