@@ -197,6 +197,7 @@ ExecHandler(char *filename){
     AddrSpace *space;
     space = new AddrSpace(executable);  
     space->Initialize(executable);  
+    ASSERT(space->Initialize(executable));
     Thread *thread;
     thread = new Thread("1", 0 ,0);
     thread->space = space;

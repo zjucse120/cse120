@@ -90,9 +90,10 @@ AddrSpace::Initialize(OpenFile *executable)
    
    DEBUG('a', "Initializing address space, num pages %d, size %d\n",
           numPages, size);
-
+       int x;
+        x = mmu->NumPagesCanBeUsed();
 //if the numPages needed larger than NumePages can be used?
-   if ((int)numPages > mmu->NumPagesCanBeUsed()){
+   if ((int)numPages >( mmu->NumPagesCanBeUsed())){
 	printf("NumpagesCanBeUsed is not enough!");
 	return false;
 	}
