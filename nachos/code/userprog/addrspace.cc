@@ -91,6 +91,12 @@ AddrSpace::Initialize(OpenFile *executable)
    DEBUG('a', "Initializing address space, num pages %d, size %d\n",
           numPages, size);
 
+//if the numPages needed larger than NumePages can be used?
+   if ((int)numPages > mmu->NumPagesCanBeUsed()){
+	printf("NumpagesCanBeUsed is not enough!");
+	return false;
+	}
+
 // first, set up the translation
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
@@ -113,11 +119,6 @@ AddrSpace::Initialize(OpenFile *executable)
 	
    }
 
-//if the numPages needed larger than NumePages can be used?
-   if ((int)numPages > mmu->NumPagesCanBeUsed()){
-	return false;
-	printf("NumpagesCanBeUsed is not enough!");
-	}
 
 // then, copy in the code and data segments into memory
     if (noffH.code.size > 0) {
