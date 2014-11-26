@@ -24,8 +24,8 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
-#include "synch.h"
-
+#include "addrspace.h"
+#include "processmanager.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -46,40 +46,134 @@
 // loop making the same system call forever!
 //
 //	"which" is the kind of exception.  The list of possible exceptions
-//	are in machine.h.
+//	are in machine.h.#include "synch.h"
 //----------------------------------------------------------------------
+extern ProcessTable *pt;
+void AdjustPC();
 
-void ExitHandler()
-{
-          Lock* exitlock;
-          exitlock = new Lock("exitlock");
-          AddrSpace *space;
-          exitlock->Acquire();
-          space = currentThread->space;
-          int value = machine->ReadRegister(4);
-          printf("%d\n", value); 
-          space->~AddrSpace();
-          currentThread->Finish();
-          exitlock->Release();
-}
+void SystemCall(int type, int which);
+void Halt_Handler();
+void Exit_Handler();
+void Exec_Handler();
+
+void Exec(char *filename);
+void ProcessStart(int a);
 
 
 void
-ExceptionHandler(ExceptionType which)
-{
+ExceptionHandler(ExceptionType which){
     int type = machine->ReadRegister(2);
-    //Thread *thread;
-    //typedef void (*function)();
-    //function func;
-    if (which == SyscallException){
-     switch(type){
-           case SC_Halt:
-                DEBUG('a', "Shutdown, initiated by user program.\n");
-                interrupt->Halt();
-                break;
-           case SC_Exit:
-                 ExitHandler();    
-                 break;
+    switch(which){
+       case NoException:
+            printf("Everything is ok!");
+            break;
+       case SyscallException: 
+            SystemCall(type,which);
+            break;
+       case PageFaultException:
+            printf("No valid translation found.\n");
+            Exit_Handler();
+            break;
+       case ReadOnlyException: 
+            printf("Write attempted to page marked 'read-only'.\n");
+            Exit_Handler();
+            break;
+       case BusErrorException:   
+            printf("Translation resulted in an invalid physical address.\n");
+            Exit_Handler();		
+            break;
+       case AddressErrorException: 
+            printf("Unaligned reference or one that was beyond the end of the address space.\n");
+            Exit_Handler();		
+            break;
+       case OverflowException:  
+            printf("Integer overflow in add or sub.\n");
+            Exit_Handler();    		
+            break;
+       case IllegalInstrException:
+            printf("Unimplemented or reserved instr.\n");
+            Exit_Handler();
+            break;
+       case NumExceptionTypes:
+            Exit_Handler();
+            break;
+       default:
+            printf("Unexpected user mode exception %d %d\n", which, type);
+            ASSERT(FALSE); 
+            break;     
+
+     }
+    
+}
+
+
+void SystemCall(int type, int which) {
+	switch (type) {
+	       case SC_Halt:
+                    Halt_Handler();
+                    break;
+               case SC_Exit:
+                    Exit_Handler();
+                    break;
+               case SC_Exec:
+                    Exec_Handler();
+                    break;
+               case SC_Join:
+                    break; 
+       
+               case SC_Create:
+                    break;
+       
+               case SC_Open:
+                    break;
+       
+               case SC_Read:
+       
+                    break; 
+               case SC_Write:
+
+                    break;
+               default:
+                    printf("Unexpected user mode exception %d %d\n", which, type);
+                    ASSERT(FALSE); 
+                    break;     
+
+	}
+}
+
+void Halt_Handler() {
+        DEBUG('a', "Shutdown, initiated by user program.\n");
+        interrupt->Halt();
+}
+
+void Exit_Handler(){
+          AddrSpace *space;
+          SpaceId pid;
+          space = currentThread->space;
+          int value = machine->ReadRegister(4);
+          pid = machine->ReadRegister(2);
+          printf("Exit value is %d\n", value); 
+          space->~AddrSpace();
+          currentThread->Finish();
+          pt->Release(pid);
+          AdjustPC();
+}
+ 
+void Exec_Handler(){
+        int arg1 = machine->ReadRegister(4);
+        int position = 0;
+        char* fileName = new char[128];
+        int value;
+        while (value != NULL) {
+            machine->ReadMem(arg1, 1, &value);
+            fileName[position] = (char) value;
+            position++;
+            arg1++;
+        }
+        Exec(fileName);
+}
+
+
   //       case SC_Fork:
     //          AddrSpace *space;
       //        Thread *thread = new Thread("newThread");
@@ -90,48 +184,63 @@ ExceptionHandler(ExceptionType which)
       //        currentThread->space = space;
 
 
-           case SC_Yield:
-                  currentThread->Yield();
-                  break;
-                  }
-   }
-   else if(which == NoException)
-  {
-        printf("Everything is ok!");
-   }
-   else if(which == PageFaultException)
-   {
-        printf("No valid translation found.\n");
-        ExitHandler();
-   }
-   else if(which == ReadOnlyException)
-   {
-        printf("Write attempted to page marked 'read-only'.\n");
-        ExitHandler();
-   }
-   else if(which == BusErrorException)
-   {
-        printf("Translation resulted in an invalid physical address.\n");
-        ExitHandler();
+void 
+Exec(char *filename){
+    SpaceId pid;
+    OpenFile *executable = fileSystem->Open(filename);
+    if (executable == NULL) {
+        printf("Unable to open file %s\n", filename);
+        machine->WriteRegister(2,0);
+        AdjustPC();
+        return ;
     }
-   else if(which == AddressErrorException)
-   {
-        printf("Unaligned reference or one that was beyond the end of the address space.\n");
-        ExitHandler();
+      
+    AddrSpace *space;
+    space = new AddrSpace(executable);    
+    
+    if(space->Initialize(executable)){
+       Thread *thread;
+       thread = new Thread("1", 0 ,0);
+       thread->space = space;
+       pid = pt->Alloc(thread);
+       printf("The thread with pid of %d is going to run\n", pid); 
+       delete executable;	
+       thread->Fork(ProcessStart,0);
+       currentThread->Yield(); 
+       machine->WriteRegister(2,pid);
+     }
+    else  { 
+       delete executable;	
+        machine->WriteRegister(2,0);
     }
-    else if(which == OverflowException)
-   {
-        printf("Integer overflow in add or sub.\n");
-        ExitHandler();   
-   }
-   else if(which == IllegalInstrException)
-   {
-         printf("Unimplemented or reserved instr.\n");
-         ExitHandler();
-    }
-   else{
-        printf("Unexpected user mode exception %d %d\n", which, type);
-        ASSERT(FALSE);
-    }
+    AdjustPC();
 }
+
+
+
+
+void ProcessStart(int a){
+    currentThread->space->InitRegisters();
+    currentThread->space->SaveState();
+    currentThread->space->RestoreState(); 
+    machine->Run();			// jump to the user progam
+    ASSERT(FALSE);			
+
+}          
+
+
+
+void AdjustPC()
+{
+    int pc;
+
+    pc = machine->ReadRegister(PCReg);
+    machine->WriteRegister(PrevPCReg, pc);
+    pc = machine->ReadRegister(NextPCReg);
+    machine->WriteRegister(PCReg, pc);
+    pc += 4;
+    machine->WriteRegister(NextPCReg, pc);
+}
+
+
 
