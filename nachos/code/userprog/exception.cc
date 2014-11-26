@@ -71,28 +71,29 @@ ExceptionHandler(ExceptionType which)
     //Thread *thread;
     //typedef void (*function)();
     //function func;
-    if  ((which == SyscallException) && (type == SC_Halt)) {
-       DEBUG('a', "Shutdown, initiated by user program.\n");
-        interrupt->Halt();
-    }
-   else if((which == SyscallException) && (type == SC_Exit)) {
+    if (which == SyscallException){
+     switch(type){
+           case SC_Halt:
+                DEBUG('a', "Shutdown, initiated by user program.\n");
+                interrupt->Halt();
+                break;
+           case SC_Exit:
+                 ExitHandler();    
+                 break;
+  //       case SC_Fork:
+    //          AddrSpace *space;
+      //        Thread *thread = new Thread("newThread");
+        //      int arg = machine->ReadRegister(4);
+        //      VoidFunctionPtr func = arg;
+      //        space = currentThread->space;
+      //        thread->Fork(func, 0);   
+      //        currentThread->space = space;
 
-        ExitHandler();    
-    } 
-  // else if((which == SyscallException) && (type == SC_Fork)) {
 
-    //    AddrSpace *space;
-      //  Thread *thread = new Thread("newThread");
-        //int arg = machine->ReadRegister(4);
-        //VoidFunctionPtr func = arg;
-      //  space = currentThread->space;
-      //  thread->Fork(func, 0);   
-      //  currentThread->space = space;
-
- //   }   
-   else if((which == SyscallException) && (type == SC_Yield)) {
-        currentThread->Yield();
-
+           case SC_Yield:
+                  currentThread->Yield();
+                  break;
+                  }
    }
    else if(which == NoException)
   {
