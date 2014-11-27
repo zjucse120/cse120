@@ -157,14 +157,17 @@ void Halt_Handler() {
 
 void Exit_Handler(){
           AddrSpace *space;
+          SpaceId pid;
           space = currentThread->space;
           int value = machine->ReadRegister(4);
+          pid = machine->ReadRegister(2);
           printf("Exit value is %d\n", value); 
           space->~AddrSpace();
           currentThread->Finish();
+          pt->Release(pid);
           AdjustPC();
 }
-
+ 
 void Exec_Handler(){
         int arg1 = machine->ReadRegister(4);
         int position = 0;
@@ -178,6 +181,17 @@ void Exec_Handler(){
         }
         Exec(fileName);
 }
+
+
+  //       case SC_Fork:
+    //          AddrSpace *space;
+      //        Thread *thread = new Thread("newThread");
+        //      int arg = machine->ReadRegister(4);
+        //      VoidFunctionPtr func = arg;
+      //        space = currentThread->space;
+      //        thread->Fork(func, 0);   
+      //        currentThread->space = space;
+
 
 void 
 Exec(char *filename){

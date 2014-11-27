@@ -57,7 +57,7 @@ public:
         int fileDescriptor = OpenForReadWrite(name, FALSE);
 
         if (fileDescriptor == -1) {
-        printf("The file does not exit!\n");
+        printf("The file does not exist!\n");
             return NULL;
         }
         return new OpenFile(fileDescriptor);
