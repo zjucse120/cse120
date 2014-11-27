@@ -26,6 +26,8 @@
 #include "syscall.h"
 #include "addrspace.h"
 #include "processmanager.h"
+#include "synchconsole.h"
+#include "filesys.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -49,14 +51,21 @@
 //	are in machine.h.#include "synch.h"
 //----------------------------------------------------------------------
 extern ProcessTable *pt;
+extern SynchConsole *synchCons;
+
 void AdjustPC();
 
 void SystemCall(int type, int which);
 void Halt_Handler();
 void Exit_Handler();
 void Exec_Handler();
+void Read_Handler();
+void Write_Handler();
 
 void Exec(char *filename);
+
+void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr);
+void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr);
 void ProcessStart(int a);
 
 
@@ -128,10 +137,10 @@ void SystemCall(int type, int which) {
                     break;
        
                case SC_Read:
-       
-                    break; 
+                    Read_Handler();
+                    break;
                case SC_Write:
-
+                    Write_Handler();
                     break;
                default:
                     printf("Unexpected user mode exception %d %d\n", which, type);
@@ -161,7 +170,7 @@ void Exec_Handler(){
         int position = 0;
         char* fileName = new char[128];
         int value;
-        while (value != NULL) {
+        while (value != 0) {
             machine->ReadMem(arg1, 1, &value);
             fileName[position] = (char) value;
             position++;
@@ -202,8 +211,83 @@ Exec(char *filename){
     AdjustPC();
 }
 
+void
+Read_Handler(){
+    int bufferVrtAddr, size, fd, numBytes;
+    char * buffer;
+    OpenFile * of;
+    
+    bufferVrtAddr = machine->ReadRegister(4);
+    size = machine->ReadRegister(5);
+    fd = machine->ReadRegister(6);//?
+    
+    /*if (size <= 0)
+        return -1;*/
+    
+    buffer = new char[size];
+    if (fd == ConsoleInput){ //how to judge whether the input is I/O and read-only?
+        numBytes = 0;
+        for (int i=0; i<size; i++)
+            buffer[i] = synchCons->GetChar();
+        CopyToUser(buffer, size, bufferVrtAddr);
+        numBytes++ ;
+        machine->WriteRegister(2, numBytes);
+    }
+    else {
+        // how to judge whether the file exist
+            numBytes = of->Read(buffer,size);
+            CopyToUser(buffer, numBytes, bufferVrtAddr);
+            machine->WriteRegister(2, numBytes);
+            
+    }
+    
+    AdjustPC();
+    delete buffer;
+}
 
+void
+Write_Handler(){
+    int bufferVrtAddr, size, fd;
+    char *buffer;
+    OpenFile * of;
+    int i;
+    
+    bufferVrtAddr = machine->ReadRegister(4);
+    size = machine->ReadRegister(5);
+    fd = machine->ReadRegister(6);//?
+    
+    buffer = new char[size];
+    CopyToKernel(bufferVrtAddr, size, buffer);
+    if (fd == ConsoleOutput){
+        for (i=0; i<size; i++)
+            synchCons->PutChar(buffer[i]);
+    }
+    else{
+        of->Write(buffer,size);
+    }
+    
+    AdjustPC();
+    delete buffer;
+}
 
+void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr){
+    int i;
+    for (i=0; i<NumBytes; i++){
+        machine->WriteMem(ToUserAddr, 1, (int)*FromKernelAddr);
+        FromKernelAddr++;
+        ToUserAddr++;
+    }
+}
+
+void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr){
+    int c;
+    int i;
+    for (i=0; i<NumBytes; i++){
+        machine->ReadMem(FromUserAddr, 1, &c);
+        FromUserAddr++;
+        *ToKernelAddr++ = (char) c;
+    }
+}
 
 void ProcessStart(int a){
     currentThread->space->InitRegisters();
