@@ -61,6 +61,7 @@ void Exit_Handler();
 void Exec_Handler();
 void Read_Handler();
 void Write_Handler();
+void Join_Handler();
 
 void Exec(char *filename);
 
@@ -127,9 +128,10 @@ void SystemCall(int type, int which) {
                case SC_Exec:
                     Exec_Handler();
                     break;
-               case SC_Join:
+               case SC_Join: 
+                    printf("Unexpected user mode exception %d %d\n", which, type);
+                    Join_Handler();
                     break; 
-       
                case SC_Create:
                     break;
        
@@ -196,6 +198,7 @@ void Exec_Handler(){
 void 
 Exec(char *filename){
     SpaceId pid;
+    int arg4 =  machine->ReadRegister(7);
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
@@ -209,7 +212,7 @@ Exec(char *filename){
     
     if(space->Initialize(executable)){
        Thread *thread;
-       thread = new Thread("1", 0 ,0);
+       thread = new Thread("1", arg4 ,0);
        thread->space = space;
        pid = pt->Alloc(thread);
        printf("The thread with pid of %d is going to run\n", pid); 
@@ -282,6 +285,18 @@ Write_Handler(){
     
     AdjustPC();
     delete buffer;
+}
+
+void
+Join_Handler() {
+	SpaceId pid;
+	Thread *t;
+	pid = machine->ReadRegister(4);
+	t =(Thread*)pt->Get(pid);
+	t->Join();
+ 
+        AdjustPC();
+	
 }
 
 void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr){

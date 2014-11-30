@@ -29,7 +29,7 @@ StartProcess(char *filename)
 {
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
-    mmu = new MemoryManager(32);
+    mmu = new MemoryManager(NumPhysPages);
     pt = new ProcessTable(100);
     synchCons = new SynchConsole(NULL,NULL);
     if (executable == NULL) {

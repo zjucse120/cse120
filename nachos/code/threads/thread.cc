@@ -145,8 +145,8 @@ Thread::Join()
       
     joinLock->Acquire();
     Joined = true; 
-    initialJoinPriority = currentThread->getPriority();
-    this->setPriority(initialJoinPriority);
+   // initialJoinPriority = currentThread->getPriority();
+   // this->setPriority(initialJoinPriority);
     child_called->Signal(joinLock);
     while(!child_finish)
        child_end->Wait(joinLock);
