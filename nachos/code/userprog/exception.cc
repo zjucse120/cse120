@@ -26,6 +26,8 @@
 #include "syscall.h"
 #include "addrspace.h"
 #include "processmanager.h"
+#include "thread.h"
+
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -55,9 +57,12 @@ void SystemCall(int type, int which);
 void Halt_Handler();
 void Exit_Handler();
 void Exec_Handler();
+void Yield_Handler();
+void Fork_Handler();
 
 void Exec(char *filename);
 void ProcessStart(int a);
+void newThreadfunc(int a);
 
 
 void
@@ -133,6 +138,12 @@ void SystemCall(int type, int which) {
                case SC_Write:
 
                     break;
+               case SC_Fork:
+                    Fork_Handler();
+                    break;
+               case SC_Yield:
+                    Yield_Handler(); 
+                    break;
                default:
                     printf("Unexpected user mode exception %d %d\n", which, type);
                     ASSERT(FALSE); 
@@ -174,15 +185,27 @@ void Exec_Handler(){
 }
 
 
-  //       case SC_Fork:
-    //          AddrSpace *space;
-      //        Thread *thread = new Thread("newThread");
-        //      int arg = machine->ReadRegister(4);
-        //      VoidFunctionPtr func = arg;
-      //        space = currentThread->space;
-      //        thread->Fork(func, 0);   
-      //        currentThread->space = space;
+void Fork_Handler(){
+              
+              int prevpc = machine->ReadRegister(NextPCReg);
+              AddrSpace *space;
+              space = currentThread->space;
+              Thread *thread = new Thread("newThread");
+              thread->space = space;
+              thread->Fork(newThreadfunc, 0);
+              currentThread->Yield();                         
+             
+              machine->WriteRegister(PCReg, prevpc);
+              prevpc += 4;
+              machine->WriteRegister(NextPCReg, prevpc);
+   
+      
+}
 
+void Yield_Handler() {
+        currentThread->Yield();
+        AdjustPC();
+}
 
 void 
 Exec(char *filename){
@@ -226,9 +249,8 @@ void ProcessStart(int a){
     machine->Run();			// jump to the user progam
     ASSERT(FALSE);			
 
-}          
-
-
+}       
+   
 
 void AdjustPC()
 {
@@ -240,6 +262,16 @@ void AdjustPC()
     machine->WriteRegister(PCReg, pc);
     pc += 4;
     machine->WriteRegister(NextPCReg, pc);
+}
+
+void newThreadfunc(int a){
+
+   int pc = machine->ReadRegister(4);
+   machine->WriteRegister(PCReg, pc);
+   pc +=4;
+   machine->WriteRegister(NextPCReg, pc);
+   machine->Run();
+
 }
 
 
