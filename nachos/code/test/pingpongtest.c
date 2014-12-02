@@ -10,19 +10,11 @@
 
 void ping(){
   
-     //char prompt[1] = "p";
-     //Write(prompt, 1, ConsoleOutput);
-     //Yield();
-     //int a=0;
      Exit(1);     
 }
 
 void pong(){
 
-     //char prompt[1] = "b";
-     //Write(prompt, 1, ConsoleOutput);
-     //int b=0;
-     //Yield();
      Exit(2);
 }
 

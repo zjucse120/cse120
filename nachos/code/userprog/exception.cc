@@ -29,6 +29,7 @@
 #include "thread.h"
 #include "synchconsole.h"
 #include "filesys.h"
+#include "boundedbuffer.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -66,7 +67,8 @@ void Read_Handler();
 void Write_Handler();
 void Join_Handler();
 
-void Exec(char *filename);
+SpaceId Exec(char *filename);
+int ReadFile(char *buff, int address, int length, int numpage);
 
 void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr);
 void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr);
@@ -172,80 +174,117 @@ void Exit_Handler(){
           SpaceId pid;
           space = currentThread->space;
           int value = machine->ReadRegister(4);
-          pid = machine->ReadRegister(2);
+          pid = currentThread->GetPid();
           printf("Exit value is %d\n", value); 
           currentThread->Finish();
           space->~AddrSpace();
-          pt->Release(pid);
+          pt->Release(pid); 
           AdjustPC();
 }
  
 void Exec_Handler(){
+        AddrSpace *space;
+        space = currentThread->space;
+        int numpage = space->numberPages();
+        SpaceId pid;
         int arg1 = machine->ReadRegister(4);
-        int position = 0;
-        char* fileName = new char[128];
-        int value;
-        while (value != 0) {
-            machine->ReadMem(arg1, 1, &value);
-            fileName[position] = (char) value;
-            position++;
-            arg1++;
+        char* filename = new char[128];
+        
+        if(!ReadFile(filename,arg1,128,numpage)){
+        printf("Exec fails to read the filename\n");
+        machine->WriteRegister(2,0);
+        return;
+    } 
+            
+    pid = Exec(filename);
+    machine->WriteRegister(2,pid);
+    AdjustPC();
+}
+
+
+
+int ReadFile(char *buff, int address, int length, int numpage){
+    int i;
+    int value;
+
+    for(i = 0;i < length;i++,address++){
+        
+        if(address < 0 || address >= numpage*length){
+            printf("Invalid string filename\n");
+            return false;
         }
-        Exec(fileName);
+        if(!machine->ReadMem(address,1,&value)){
+            printf("Read memory fails\n");
+            return false;
+        }
+       
+        buff[i] = value;
+        if(buff[i] == '\0')
+            break;
+        }
+ 
+        if(i == length) {
+            printf("The filename is too long to execute\n");
+            return false;
+        }
+        
+        if(machine->ReadRegister(4)%length + i > 128){
+            printf("The virtual address across the boundary\n");
+            return false;
+        }
+        return true;
 }
-
-
-void Fork_Handler(){
-              
-              AddrSpace *space;
-              space = currentThread->space;
-              Thread *thread = new Thread("newThread");    
-             
-              thread->space = space;
-              thread->Fork(newThreadfunc, 0);
-              AdjustPC(); 
-      
-}
-
-void Yield_Handler() {
-        currentThread->SaveUserState();
-        currentThread->Yield();
-        currentThread->RestoreUserState();
-        AdjustPC();
-}
-
-void 
+ 
+SpaceId 
 Exec(char *filename){
     SpaceId pid;
+    int pipectrl = 0;
     int arg4 =  machine->ReadRegister(7);
+    if ((arg4 & 0x6) == 0x2)
+	pipectrl = 1;
+    else if((arg4 & 0x6) == 0x6)
+	pipectrl = 2;
+    else if((arg4 = 0x6) == 0x4)
+	pipectrl = 3;
+
+    machine->WriteRegister(7,pipectrl);
+
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
-        machine->WriteRegister(2,0);
-        AdjustPC();
-        return ;
+        return 0;
     }
       
     AddrSpace *space;
     space = new AddrSpace(executable);    
     
     if(space->Initialize(executable)){
+
        Thread *thread;
-       thread = new Thread("1", arg4 ,0);
+       thread = new Thread("1", arg4 & 0x1 ,0);
        thread->space = space;
        pid = pt->Alloc(thread);
-       printf("The thread with pid of %d is going to run\n", pid); 
-       delete executable;	
-       thread->Fork(ProcessStart,0);
-       currentThread->Yield(); 
-       machine->WriteRegister(2,pid);
+      if(pid == 0){
+           delete executable;
+           delete thread;
+           printf("sorry, I run out of process tables\n"); 
+           return 0;  
+         }
+      else{
+           thread->SetPid(pid);
+           printf("The thread with pid of %d is going to run\n", pid); 
+           delete executable;	
+           thread->Fork(ProcessStart,0);
+           currentThread->Yield(); 
+           return pid;
+           }
+
      }
     else  { 
-       delete executable;	
-        machine->WriteRegister(2,0);
+        delete executable;	
+        return 0;
     }
-    AdjustPC();
-}
+   }
 
 void
 Read_Handler(){
@@ -297,7 +336,6 @@ Write_Handler(){
     if (fd == ConsoleOutput){
         for (i=0; i<size; i++)
             synchCons->PutChar(buffer[i]);
-        synchCons->WriteDone();
     }
     else{
         of->Write(buffer,size);
@@ -317,6 +355,24 @@ Join_Handler() {
  
         AdjustPC();
 	
+}
+
+void Fork_Handler(){
+              
+              AddrSpace *space;
+              space = currentThread->space;
+              Thread *thread = new Thread("newThread");   
+              thread->space = space;
+              thread->Fork(newThreadfunc, 0);
+              AdjustPC(); 
+      
+}
+
+void Yield_Handler() {
+        currentThread->SaveUserState();
+        currentThread->Yield();
+        currentThread->RestoreUserState();
+        AdjustPC();
 }
 
 void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr){

@@ -30,17 +30,18 @@ public:
     int Translate(int virtaddr);
     void InitRegisters();		// Initialize user-level CPU registers,
     // before jumping to user code
-
+    unsigned int numberPages() {return numPages;}
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch
     unsigned int numPages;		// Number of pages in the virtual
     //unsigned int size;
     // address space
    // NoffHeader noffH;
-
+    void newPageTable();
 private:
     TranslationEntry *pageTable;	// Assume linear page table translation
     // for now!
+    TranslationEntry *newTable;	
 
   
 

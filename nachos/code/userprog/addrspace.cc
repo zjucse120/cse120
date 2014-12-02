@@ -148,7 +148,6 @@ AddrSpace::Initialize(OpenFile *executable)
 		code_virt_addr = code_virt_addr + code_size ;
 		code_size = PageSize;		
 		executable->ReadAt(&(machine->mainMemory[Translate(code_virt_addr)]), code_size, code_file_off);
-		//printf("the memory is %p \n", &(machine->mainMemory[Translate(code_virt_addr)]));
                 code_size_load = code_size_load - code_size;	
 	        }	
 	   
@@ -164,10 +163,7 @@ AddrSpace::Initialize(OpenFile *executable)
 	//load data segments
     if (noffH.initData.size > 0) {
         DEBUG('a', "Initializing data segment, at 0x%x, size %d\n",
-              noffH.initData.virtualAddr, noffH.initData.size);
-        //executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-        //                   noffH.initData.size, noffH.initData.inFileAddr);  
-                          
+              noffH.initData.virtualAddr, noffH.initData.size);           
       data_size_load = noffH.initData.size;
       data_size = 0;
       data_file_off = noffH.initData.inFileAddr;
