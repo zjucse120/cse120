@@ -35,6 +35,7 @@
 #define NumPhysPages    40
 #define MemorySize 	(NumPhysPages * PageSize)
 #define TLBSize		4		// if there is a TLB, make it small
+#define ProcTableSize   100  
 
 enum ExceptionType { NoException,           // Everything ok!
                      SyscallException,      // A program executed a system call.

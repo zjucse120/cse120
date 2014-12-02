@@ -27,10 +27,11 @@ SynchConsole *synchCons;
 void
 StartProcess(char *filename)
 {
+    int mainpid;
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
     mmu = new MemoryManager(NumPhysPages);
-    pt = new ProcessTable(100);
+    pt = new ProcessTable(ProcTableSize);
     synchCons = new SynchConsole(NULL,NULL);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
@@ -41,7 +42,8 @@ StartProcess(char *filename)
     ASSERT(space->Initialize(executable));
  
     currentThread->space = space;
-    pt->Alloc(currentThread);
+    mainpid = pt->Alloc(currentThread);
+    currentThread->SetPid(mainpid);
 
     delete executable;			// close file
 

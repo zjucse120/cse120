@@ -34,7 +34,7 @@ ProcessTable::Get(int index){
 void 
 ProcessTable::Release(int index){
       pm_lock->Acquire();
-      bitmap->Clear(index - 1);
+      bitmap->Clear(index-1);
       Pcb[index].object=NULL;
       pm_lock->Release();
 }

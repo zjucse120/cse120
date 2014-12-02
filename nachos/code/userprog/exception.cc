@@ -28,6 +28,7 @@
 #include "processmanager.h"
 #include "synchconsole.h"
 #include "filesys.h"
+#include "boundedbuffer.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -162,11 +163,11 @@ void Exit_Handler(){
           SpaceId pid;
           space = currentThread->space;
           int value = machine->ReadRegister(4);
-          pid = machine->ReadRegister(2);
+          pid = currentThread->GetPid();
+          pt->Release(pid);
           printf("Exit value is %d\n", value); 
           space->~AddrSpace();
           currentThread->Finish();
-          pt->Release(pid);
           AdjustPC();
 }
  
@@ -198,7 +199,17 @@ void Exec_Handler(){
 void 
 Exec(char *filename){
     SpaceId pid;
+    int pipectrl = 0;
     int arg4 =  machine->ReadRegister(7);
+    if ((arg4 & 0x6) == 0x2)
+	pipectrl = 1;
+    else if((arg4 & 0x6) == 0x6)
+	pipectrl = 2;
+    else if((arg4 = 0x6) == 0x4)
+	pipectrl = 3;
+
+    machine->WriteRegister(7,pipectrl);
+
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
@@ -211,15 +222,27 @@ Exec(char *filename){
     space = new AddrSpace(executable);    
     
     if(space->Initialize(executable)){
+
        Thread *thread;
-       thread = new Thread("1", arg4 ,0);
+       thread = new Thread("1", arg4 & 0x1 ,0);
        thread->space = space;
        pid = pt->Alloc(thread);
-       printf("The thread with pid of %d is going to run\n", pid); 
-       delete executable;	
-       thread->Fork(ProcessStart,0);
-       currentThread->Yield(); 
-       machine->WriteRegister(2,pid);
+      if(pid == 0){
+           delete executable;
+           delete thread;
+           machine->WriteRegister(2,pid);
+           printf("sorry, I run out of process tables\n"); 
+
+         }
+      else{
+           thread->SetPid(pid);
+           printf("The thread with pid of %d is going to run\n", pid); 
+           delete executable;	
+           thread->Fork(ProcessStart,0);
+           machine->WriteRegister(2,pid);
+           currentThread->Yield(); 
+           }
+
      }
     else  { 
        delete executable;	

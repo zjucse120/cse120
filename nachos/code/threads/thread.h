@@ -112,7 +112,8 @@ public:
     void setPriority (int newPriority);
     int getPriority();
     int waiting;
-
+    void SetPid(int newpid){pid = newpid;}
+    int GetPid(){return pid;}
     Thread* dependThread;
 
     
@@ -137,6 +138,7 @@ private:
      Lock* joinLock;
     int join;
     // int initialJoinPriority;
+    int pid;
 
 
 #ifdef USER_PROGRAM
