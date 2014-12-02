@@ -64,7 +64,8 @@ void Read_Handler();
 void Write_Handler();
 void Join_Handler();
 
-void Exec(char *filename);
+SpaceId Exec(char *filename);
+int ReadFile(char *buff, int address, int length, int numpage);
 
 void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr);
 void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr);
@@ -172,31 +173,58 @@ void Exit_Handler(){
 }
  
 void Exec_Handler(){
+        AddrSpace *space;
+        space = currentThread->space;
+        int numpage = space->numberPages();
+        SpaceId pid;
         int arg1 = machine->ReadRegister(4);
-        int position = 0;
-        char* fileName = new char[128];
-        int value;
-        while (value != 0) {
-            machine->ReadMem(arg1, 1, &value);
-            fileName[position] = (char) value;
-            position++;
-            arg1++;
-        }
-        Exec(fileName);
+        char* filename = new char[128];
+        
+        if(!ReadFile(filename,arg1,128,numpage)){
+        printf("Exec fails to read the filename\n");
+        machine->WriteRegister(2,0);
+        return;
+    } 
+            
+    pid = Exec(filename);
+    machine->WriteRegister(2,pid);
+    AdjustPC();
 }
 
+int ReadFile(char *buff, int address, int length, int numpage){
+    int i;
+    int value;
 
-  //       case SC_Fork:
-    //          AddrSpace *space;
-      //        Thread *thread = new Thread("newThread");
-        //      int arg = machine->ReadRegister(4);
-        //      VoidFunctionPtr func = arg;
-      //        space = currentThread->space;
-      //        thread->Fork(func, 0);   
-      //        currentThread->space = space;
+    for(i = 0;i < length;i++,address++){
+        
+        if(address < 0 || address >= numpage*length){
+            printf("Invalid string filename\n");
+            return false;
+        }
 
-
-void 
+        if(!machine->ReadMem(address,1,&value)){
+            printf("Read memory fails\n");
+            return false;
+        }
+       
+        buff[i] = value;
+        if(buff[i] == '\0')
+            break;
+        }
+ 
+        if(i == length) {
+            printf("The filename is too long to execute\n");
+            return false;
+        }
+        
+        if(machine->ReadRegister(4)%length + i > 128){
+            printf("The virtual address across the boundary\n");
+            return false;
+        }
+        return true;
+}
+ 
+SpaceId 
 Exec(char *filename){
     SpaceId pid;
     int pipectrl = 0;
@@ -213,9 +241,7 @@ Exec(char *filename){
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
-        machine->WriteRegister(2,0);
-        AdjustPC();
-        return ;
+        return 0;
     }
       
     AddrSpace *space;
@@ -230,26 +256,24 @@ Exec(char *filename){
       if(pid == 0){
            delete executable;
            delete thread;
-           machine->WriteRegister(2,pid);
            printf("sorry, I run out of process tables\n"); 
-
+           return 0;  
          }
       else{
            thread->SetPid(pid);
            printf("The thread with pid of %d is going to run\n", pid); 
            delete executable;	
            thread->Fork(ProcessStart,0);
-           machine->WriteRegister(2,pid);
            currentThread->Yield(); 
+           return pid;
            }
 
      }
     else  { 
-       delete executable;	
-        machine->WriteRegister(2,0);
+        delete executable;	
+        return 0;
     }
-    AdjustPC();
-}
+   }
 
 void
 Read_Handler(){
