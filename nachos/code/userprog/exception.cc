@@ -244,7 +244,7 @@ Exec(char *filename){
 	pipectrl = 1;
     else if((arg4 & 0x6) == 0x6)
 	pipectrl = 2;
-    else if((arg4 = 0x6) == 0x4)
+    else if((arg4 & 0x6) == 0x4)
 	pipectrl = 3;
 
     machine->WriteRegister(7,pipectrl);
@@ -261,7 +261,7 @@ Exec(char *filename){
     if(space->Initialize(executable)){
 
        Thread *thread;
-       thread = new Thread("1", arg4 & 0x1 ,0);
+       thread = new Thread("1",arg4 ,0);
        thread->space = space;
        pid = pt->Alloc(thread);
       if(pid == 0){
@@ -275,7 +275,6 @@ Exec(char *filename){
            printf("The thread with pid of %d is going to run\n", pid); 
            delete executable;	
            thread->Fork(ProcessStart,0);
-           currentThread->Yield(); 
            return pid;
            }
 
