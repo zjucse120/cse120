@@ -115,7 +115,7 @@ public:
 
     Thread* dependThread;
 
-
+    
 private:
     // some of the private data for this class is listed above
 
@@ -135,8 +135,8 @@ private:
      Condition* child_called;
      Condition* child_end;
      Lock* joinLock;
-     int join;
-     int initialJoinPriority;
+    int join;
+    // int initialJoinPriority;
 
 
 #ifdef USER_PROGRAM

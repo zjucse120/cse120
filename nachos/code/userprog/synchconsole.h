@@ -1,30 +1,31 @@
 #include "copyright.h"
-#ifndef SYNCHCONSOLE_H
-#define SYNCHCONSOLE_H
-
 #include "console.h"
 #include "synch.h"
-#include "system.h"
+//#include "system.h"
+//#ifdef USER_PROGRAM
+#include "machine.h"
+#include "addrspace.h"
+
+
 
 class SynchConsole{
-pubilc:
+public:
     SynchConsole(char* readFile, char* writeFile);
     
     ~SynchConsole();
     
-    void PutChar(char ch);
+    void PutChar(char c);
     
     char GetChar();
     
     void WriteDone();
     
-    void ReadDone();
+    void ReadAvail();
 
 private:
     Console* console;
     Lock* W_lock;
     Lock* R_lock;
-    Semphore* readAvial;
-    Semphore* writeDone;
+    Semaphore *readAvail;
+    Semaphore *writeDone;
 };
-#endif //SYNCHCONSOLE_H

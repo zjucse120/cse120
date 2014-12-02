@@ -27,7 +27,8 @@
 #include "addrspace.h"
 #include "processmanager.h"
 #include "thread.h"
-
+#include "synchconsole.h"
+#include "filesys.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -51,6 +52,8 @@
 //	are in machine.h.#include "synch.h"
 //----------------------------------------------------------------------
 extern ProcessTable *pt;
+extern SynchConsole *synchCons;
+
 void AdjustPC();
 
 void SystemCall(int type, int which);
@@ -59,8 +62,14 @@ void Exit_Handler();
 void Exec_Handler();
 void Yield_Handler();
 void Fork_Handler();
+void Read_Handler();
+void Write_Handler();
+void Join_Handler();
 
 void Exec(char *filename);
+
+void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr);
+void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr);
 void ProcessStart(int a);
 void newThreadfunc(int a);
 
@@ -123,9 +132,10 @@ void SystemCall(int type, int which) {
                case SC_Exec:
                     Exec_Handler();
                     break;
-               case SC_Join:
+               case SC_Join: 
+                    printf("Unexpected user mode exception %d %d\n", which, type);
+                    Join_Handler();
                     break; 
-       
                case SC_Create:
                     break;
        
@@ -133,10 +143,10 @@ void SystemCall(int type, int which) {
                     break;
        
                case SC_Read:
-       
-                    break; 
+                    Read_Handler();
+                    break;
                case SC_Write:
-
+                    Write_Handler();
                     break;
                case SC_Fork:
                     Fork_Handler();
@@ -164,8 +174,8 @@ void Exit_Handler(){
           int value = machine->ReadRegister(4);
           pid = machine->ReadRegister(2);
           printf("Exit value is %d\n", value); 
-          space->~AddrSpace();
           currentThread->Finish();
+          space->~AddrSpace();
           pt->Release(pid);
           AdjustPC();
 }
@@ -175,7 +185,7 @@ void Exec_Handler(){
         int position = 0;
         char* fileName = new char[128];
         int value;
-        while (value != NULL) {
+        while (value != 0) {
             machine->ReadMem(arg1, 1, &value);
             fileName[position] = (char) value;
             position++;
@@ -187,29 +197,27 @@ void Exec_Handler(){
 
 void Fork_Handler(){
               
-              int prevpc = machine->ReadRegister(NextPCReg);
               AddrSpace *space;
               space = currentThread->space;
-              Thread *thread = new Thread("newThread");
+              Thread *thread = new Thread("newThread");    
+             
               thread->space = space;
               thread->Fork(newThreadfunc, 0);
-              currentThread->Yield();                         
-             
-              machine->WriteRegister(PCReg, prevpc);
-              prevpc += 4;
-              machine->WriteRegister(NextPCReg, prevpc);
-   
+              AdjustPC(); 
       
 }
 
 void Yield_Handler() {
+        currentThread->SaveUserState();
         currentThread->Yield();
+        currentThread->RestoreUserState();
         AdjustPC();
 }
 
 void 
 Exec(char *filename){
     SpaceId pid;
+    int arg4 =  machine->ReadRegister(7);
     OpenFile *executable = fileSystem->Open(filename);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
@@ -223,7 +231,7 @@ Exec(char *filename){
     
     if(space->Initialize(executable)){
        Thread *thread;
-       thread = new Thread("1", 0 ,0);
+       thread = new Thread("1", arg4 ,0);
        thread->space = space;
        pid = pt->Alloc(thread);
        printf("The thread with pid of %d is going to run\n", pid); 
@@ -239,14 +247,102 @@ Exec(char *filename){
     AdjustPC();
 }
 
+void
+Read_Handler(){
+    int bufferVrtAddr, size, fd, numBytes;
+    char * buffer;
+    OpenFile * of;
+    
+    bufferVrtAddr = machine->ReadRegister(4);
+    size = machine->ReadRegister(5);
+    fd = machine->ReadRegister(6);//?
+    
+    /*if (size <= 0)
+        return -1;*/
+    
+    buffer = new char[size];
+    if (fd == ConsoleInput){ //how to judge whether the input is I/O and read-only?
+        numBytes = 0;
+        for (int i=0; i<size; i++)
+            buffer[i] = synchCons->GetChar();
+        CopyToUser(buffer, size, bufferVrtAddr);
+        numBytes++ ;
+        machine->WriteRegister(2, numBytes);
+    }
+    else {
+        // how to judge whether the file exist
+            numBytes = of->Read(buffer,size);
+            CopyToUser(buffer, numBytes, bufferVrtAddr);
+            machine->WriteRegister(2, numBytes);
+            
+    }
+    
+    AdjustPC();
+    delete buffer;
+}
 
+void
+Write_Handler(){
+    int bufferVrtAddr, size, fd;
+    char *buffer;
+    OpenFile * of;
+    int i;
+    
+    bufferVrtAddr = machine->ReadRegister(4);
+    size = machine->ReadRegister(5);
+    fd = machine->ReadRegister(6);//?
+    
+    buffer = new char[size];
+    CopyToKernel(bufferVrtAddr, size, buffer);
+    if (fd == ConsoleOutput){
+        for (i=0; i<size; i++)
+            synchCons->PutChar(buffer[i]);
+        synchCons->WriteDone();
+    }
+    else{
+        of->Write(buffer,size);
+    }
+    
+    AdjustPC();
+    delete buffer;
+}
 
+void
+Join_Handler() {
+	SpaceId pid;
+	Thread *t;
+	pid = machine->ReadRegister(4);
+	t =(Thread*)pt->Get(pid);
+	t->Join();
+ 
+        AdjustPC();
+	
+}
+
+void CopyToUser(char *FromKernelAddr, int NumBytes, int ToUserAddr){
+    int i;
+    for (i=0; i<NumBytes; i++){
+        machine->WriteMem(ToUserAddr, 1, (int)*FromKernelAddr);
+        FromKernelAddr++;
+        ToUserAddr++;
+    }
+}
+
+void CopyToKernel(int FromUserAddr, int NumBytes, char *ToKernelAddr){
+    int c;
+    int i;
+    for (i=0; i<NumBytes; i++){
+        machine->ReadMem(FromUserAddr, 1, &c);
+        FromUserAddr++;
+        *ToKernelAddr++ = (char) c;
+    }
+}
 
 void ProcessStart(int a){
     currentThread->space->InitRegisters();
     currentThread->space->SaveState();
     currentThread->space->RestoreState(); 
-    machine->Run();			// jump to the user progam
+    machine->Run();			// jump to the user program
     ASSERT(FALSE);			
 
 }       
@@ -270,6 +366,7 @@ void newThreadfunc(int a){
    machine->WriteRegister(PCReg, pc);
    pc +=4;
    machine->WriteRegister(NextPCReg, pc);
+   machine->WriteRegister(StackReg, (currentThread->space->numPages--) * PageSize - 16);
    machine->Run();
 
 }

@@ -15,6 +15,7 @@
 #include "synch.h"
 #include "memorymanager.h"
 #include "processmanager.h"
+#include "synchconsole.h"
 //----------------------------------------------------------------------
 // StartProcess
 // 	Run a user program.  Open the executable, load it into
@@ -22,13 +23,15 @@
 //----------------------------------------------------------------------
 MemoryManager * mmu;
 ProcessTable *pt;
+SynchConsole *synchCons;
 void
 StartProcess(char *filename)
 {
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
-    mmu = new MemoryManager(32);
+    mmu = new MemoryManager(NumPhysPages);
     pt = new ProcessTable(100);
+    synchCons = new SynchConsole(NULL,NULL);
     if (executable == NULL) {
         printf("Unable to open file %s\n", filename);
         return;
@@ -93,3 +96,4 @@ ConsoleTest (char *in, char *out)
         if (ch == 'q') return;  // if q, quit
     }
 }
+
