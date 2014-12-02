@@ -199,7 +199,7 @@ AddrSpace::Initialize(OpenFile *executable)
 }
   return true;
 }
-
+	
 //----------------------------------------------------------------------
 // AddrSpace::AddrSpace
 // 	Create an address space to run a user program.
@@ -242,10 +242,26 @@ AddrSpace::Translate(int virtAddr)
 {
     int physAddr;
     unsigned vpn,offset;
+    TranslationEntry *entry;
+    unsigned int pageFrame;
 
     vpn = (unsigned) virtAddr / PageSize;
     offset = (unsigned) virtAddr % PageSize;
-    physAddr = pageTable[vpn].physicalPage * PageSize + offset;
+    if (vpn >= numPages) {
+            return AddressErrorException;
+       } else if (!pageTable[vpn].valid) {
+            return PageFaultException;
+        }
+        entry = &pageTable[vpn];
+
+    pageFrame = entry->physicalPage;
+    if (pageFrame >= NumPhysPages) {
+        DEBUG('a', "*** frame %d > %d!\n", pageFrame, NumPhysPages);
+        return BusErrorException;
+    }
+    entry->use = TRUE;		// set the use, dirty bits
+	
+    physAddr = pageFrame * PageSize + offset;
         	
     return physAddr;
 
